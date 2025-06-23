@@ -1,0 +1,26 @@
+{
+  "configurations": [
+    {
+      "browse": {
+        "databaseFilename": "${default}",
+        "limitSymbolsToIncludedHeaders": false
+      },
+      "includePath": [
+        "/home/gh/uwb_odom_ws/devel/include/**",
+        "/usr/local/include/**",
+        "/home/gh/work/UWB_sim/devel/include/**",
+        "/opt/ros/noetic/include/**",
+        "/home/gh/uwb_odom_ws/src/distance/include/**",
+        "/home/gh/work/UWB_sim/src/turtlebot3_simulations/turtlebot3_fake/include/**",
+        "/home/gh/work/UWB_sim/src/turtlebot3_simulations/turtlebot3_gazebo/include/**",
+        "/usr/include/**"
+      ],
+      "name": "ROS",
+      "intelliSenseMode": "gcc-x64",
+      "compilerPath": "/usr/bin/gcc",
+      "cStandard": "gnu11",
+      "cppStandard": "c++14"
+    }
+  ],
+  "version": 4
+}

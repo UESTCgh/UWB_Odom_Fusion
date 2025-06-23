@@ -1,0 +1,8 @@
+prefix=/home/gh/uwb_odom_ws/devel
+
+Name: serial
+Description: Description of serial
+Version: 1.2.1
+Cflags: -I/home/gh/uwb_odom_ws/src/nlink_parser/extern/serial/include
+Libs: -L${prefix}/lib -lserial -lrt -lpthread
+Requires: 

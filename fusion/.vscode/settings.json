@@ -1,0 +1,12 @@
+{
+    "python.autoComplete.extraPaths": [
+        "/home/gh/uwb_odom_ws/devel/lib/python3/dist-packages",
+        "/home/gh/work/UWB_sim/devel/lib/python3/dist-packages",
+        "/opt/ros/noetic/lib/python3/dist-packages"
+    ],
+    "python.analysis.extraPaths": [
+        "/home/gh/uwb_odom_ws/devel/lib/python3/dist-packages",
+        "/home/gh/work/UWB_sim/devel/lib/python3/dist-packages",
+        "/opt/ros/noetic/lib/python3/dist-packages"
+    ]
+}

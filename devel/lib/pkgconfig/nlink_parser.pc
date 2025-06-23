@@ -1,0 +1,8 @@
+prefix=/home/gh/uwb_odom_ws/devel
+
+Name: nlink_parser
+Description: Description of nlink_parser
+Version: 2.1.0
+Cflags: -I/home/gh/uwb_odom_ws/devel/include
+Libs: -L${prefix}/lib 
+Requires: message_runtime

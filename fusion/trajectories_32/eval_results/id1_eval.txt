@@ -1,0 +1,37 @@
+--------------------------------------------------------------------------------
+Loaded 4811 stamps and poses from: ./trajectories_32/id1_uwb.tum
+Loaded 5001 stamps and poses from: ./trajectories_32/id1_odom.tum
+--------------------------------------------------------------------------------
+Synchronizing trajectories...
+Found 4811 of max. 4811 possible matching timestamps between...
+	./trajectories_32/id1_uwb.tum
+and:	./trajectories_32/id1_odom.tum
+..with max. time diff.: 0.01 (s) and time offset: 0.0 (s).
+--------------------------------------------------------------------------------
+Aligning using Umeyama's method...
+Rotation of alignment:
+[[-0.50946503 -0.86049136  0.        ]
+ [-0.86049136  0.50946503  0.        ]
+ [ 0.          0.         -1.        ]]
+Translation of alignment:
+[0.06811494 0.09794224 0.        ]
+Scale correction: 1.0
+--------------------------------------------------------------------------------
+Compared 4811 absolute pose pairs.
+Calculating APE for translation part pose relation...
+--------------------------------------------------------------------------------
+APE w.r.t. translation part (m)
+(with SE(3) Umeyama alignment)
+
+       max	0.557103
+      mean	0.206856
+    median	0.164740
+       min	0.021959
+      rmse	0.247478
+       sse	294.652513
+       std	0.135853
+
+--------------------------------------------------------------------------------
+Plotting results... 
+Plot saved to ./trajectories_32/eval_results/id1_ape_plot_raw.png
+Plot saved to ./trajectories_32/eval_results/id1_ape_plot_map.png
