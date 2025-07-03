@@ -232,18 +232,32 @@ struct Printer< ::nlink_parser::IotFrame0Node_<ContainerAllocator> >
 {
   template<typename Stream> static void stream(Stream& s, const std::string& indent, const ::nlink_parser::IotFrame0Node_<ContainerAllocator>& v)
   {
+    if (false || !indent.empty())
+      s << std::endl;
     s << indent << "uid: ";
     Printer<uint32_t>::stream(s, indent + "  ", v.uid);
+    if (true || !indent.empty())
+      s << std::endl;
     s << indent << "dis: ";
     Printer<float>::stream(s, indent + "  ", v.dis);
+    if (true || !indent.empty())
+      s << std::endl;
     s << indent << "aoa_angle_horizontal: ";
     Printer<float>::stream(s, indent + "  ", v.aoa_angle_horizontal);
+    if (true || !indent.empty())
+      s << std::endl;
     s << indent << "aoa_angle_vertical: ";
     Printer<float>::stream(s, indent + "  ", v.aoa_angle_vertical);
+    if (true || !indent.empty())
+      s << std::endl;
     s << indent << "fp_rssi: ";
     Printer<float>::stream(s, indent + "  ", v.fp_rssi);
+    if (true || !indent.empty())
+      s << std::endl;
     s << indent << "rx_rssi: ";
     Printer<float>::stream(s, indent + "  ", v.rx_rssi);
+    if (true || !indent.empty())
+      s << std::endl;
     s << indent << "user_data: ";
     Printer<std::basic_string<char, std::char_traits<char>, typename std::allocator_traits<ContainerAllocator>::template rebind_alloc<char>>>::stream(s, indent + "  ", v.user_data);
   }

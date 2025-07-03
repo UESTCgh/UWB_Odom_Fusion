@@ -215,20 +215,33 @@ struct Printer< ::nlink_parser::TofsenseMFrame0_<ContainerAllocator> >
 {
   template<typename Stream> static void stream(Stream& s, const std::string& indent, const ::nlink_parser::TofsenseMFrame0_<ContainerAllocator>& v)
   {
+    if (false || !indent.empty())
+      s << std::endl;
     s << indent << "id: ";
     Printer<uint8_t>::stream(s, indent + "  ", v.id);
+    if (true || !indent.empty())
+      s << std::endl;
     s << indent << "system_time: ";
     Printer<uint32_t>::stream(s, indent + "  ", v.system_time);
+    if (true || !indent.empty())
+      s << std::endl;
     s << indent << "pixel_count: ";
     Printer<uint8_t>::stream(s, indent + "  ", v.pixel_count);
-    s << indent << "pixels[]" << std::endl;
+    if (true || !indent.empty())
+      s << std::endl;
+    s << indent << "pixels: ";
+    if (v.pixels.empty() || false)
+      s << "[";
     for (size_t i = 0; i < v.pixels.size(); ++i)
     {
-      s << indent << "  pixels[" << i << "]: ";
-      s << std::endl;
-      s << indent;
-      Printer< ::nlink_parser::TofsenseMFrame0Pixel_<ContainerAllocator> >::stream(s, indent + "    ", v.pixels[i]);
+      if (false && i > 0)
+        s << ", ";
+      else if (!false)
+        s << std::endl << indent << "  -";
+      Printer< ::nlink_parser::TofsenseMFrame0Pixel_<ContainerAllocator> >::stream(s, false ? std::string() : indent + "    ", v.pixels[i]);
     }
+    if (v.pixels.empty() || false)
+      s << "]";
   }
 };
 

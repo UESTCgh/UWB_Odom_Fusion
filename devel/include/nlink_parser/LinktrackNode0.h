@@ -200,16 +200,29 @@ struct Printer< ::nlink_parser::LinktrackNode0_<ContainerAllocator> >
 {
   template<typename Stream> static void stream(Stream& s, const std::string& indent, const ::nlink_parser::LinktrackNode0_<ContainerAllocator>& v)
   {
+    if (false || !indent.empty())
+      s << std::endl;
     s << indent << "role: ";
     Printer<uint8_t>::stream(s, indent + "  ", v.role);
+    if (true || !indent.empty())
+      s << std::endl;
     s << indent << "id: ";
     Printer<uint8_t>::stream(s, indent + "  ", v.id);
-    s << indent << "data[]" << std::endl;
+    if (true || !indent.empty())
+      s << std::endl;
+    s << indent << "data: ";
+    if (v.data.empty() || true)
+      s << "[";
     for (size_t i = 0; i < v.data.size(); ++i)
     {
-      s << indent << "  data[" << i << "]: ";
-      Printer<uint8_t>::stream(s, indent + "  ", v.data[i]);
+      if (true && i > 0)
+        s << ", ";
+      else if (!true)
+        s << std::endl << indent << "  -";
+      Printer<uint8_t>::stream(s, true ? std::string() : indent + "    ", v.data[i]);
     }
+    if (v.data.empty() || true)
+      s << "]";
   }
 };
 

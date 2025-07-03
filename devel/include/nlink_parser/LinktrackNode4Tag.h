@@ -206,18 +206,29 @@ struct Printer< ::nlink_parser::LinktrackNode4Tag_<ContainerAllocator> >
 {
   template<typename Stream> static void stream(Stream& s, const std::string& indent, const ::nlink_parser::LinktrackNode4Tag_<ContainerAllocator>& v)
   {
+    if (false || !indent.empty())
+      s << std::endl;
     s << indent << "id: ";
     Printer<uint8_t>::stream(s, indent + "  ", v.id);
+    if (true || !indent.empty())
+      s << std::endl;
     s << indent << "voltage: ";
     Printer<float>::stream(s, indent + "  ", v.voltage);
-    s << indent << "anchors[]" << std::endl;
+    if (true || !indent.empty())
+      s << std::endl;
+    s << indent << "anchors: ";
+    if (v.anchors.empty() || false)
+      s << "[";
     for (size_t i = 0; i < v.anchors.size(); ++i)
     {
-      s << indent << "  anchors[" << i << "]: ";
-      s << std::endl;
-      s << indent;
-      Printer< ::nlink_parser::LinktrackNode4Anchor_<ContainerAllocator> >::stream(s, indent + "    ", v.anchors[i]);
+      if (false && i > 0)
+        s << ", ";
+      else if (!false)
+        s << std::endl << indent << "  -";
+      Printer< ::nlink_parser::LinktrackNode4Anchor_<ContainerAllocator> >::stream(s, false ? std::string() : indent + "    ", v.anchors[i]);
     }
+    if (v.anchors.empty() || false)
+      s << "]";
   }
 };
 

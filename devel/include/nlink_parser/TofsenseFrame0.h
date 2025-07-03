@@ -224,16 +224,28 @@ struct Printer< ::nlink_parser::TofsenseFrame0_<ContainerAllocator> >
 {
   template<typename Stream> static void stream(Stream& s, const std::string& indent, const ::nlink_parser::TofsenseFrame0_<ContainerAllocator>& v)
   {
+    if (false || !indent.empty())
+      s << std::endl;
     s << indent << "id: ";
     Printer<uint8_t>::stream(s, indent + "  ", v.id);
+    if (true || !indent.empty())
+      s << std::endl;
     s << indent << "system_time: ";
     Printer<uint32_t>::stream(s, indent + "  ", v.system_time);
+    if (true || !indent.empty())
+      s << std::endl;
     s << indent << "dis: ";
     Printer<float>::stream(s, indent + "  ", v.dis);
+    if (true || !indent.empty())
+      s << std::endl;
     s << indent << "dis_status: ";
     Printer<uint8_t>::stream(s, indent + "  ", v.dis_status);
+    if (true || !indent.empty())
+      s << std::endl;
     s << indent << "signal_strength: ";
     Printer<uint16_t>::stream(s, indent + "  ", v.signal_strength);
+    if (true || !indent.empty())
+      s << std::endl;
     s << indent << "range_precision: ";
     Printer<uint8_t>::stream(s, indent + "  ", v.range_precision);
   }

@@ -1,6 +1,7 @@
 <launch>
+  <param name="rosconsole_config_file" value="$(find distance)/config/rosconsole.config"/>
   <!-- 机器个数 -->
-  <arg name="total_nodes" default="6"/>
+  <arg name="total_nodes" default="4"/>
   <!-- INFO频率：Hz -->
   <arg name="matrix_print_rate" default="1.0"/>
   <!-- 发布频率：Hz -->
@@ -54,14 +55,14 @@
     <param name="target_topic" value="/uwb3/target_position"/>
   </node>
   
-  <node pkg="distance" type="uwb_matrix_ros" name="uwb_node_4" output="screen">
+  <!-- <node pkg="distance" type="uwb_matrix_ros" name="uwb_node_4" output="screen">
     <param name="node_id" value="4"/>
     <param name="total_nodes" value="$(arg total_nodes)"/>
     <param name="matrix_print_rate" value="$(arg matrix_print_rate)"/>
     <param name="matrix_publish_rate" value="$(arg matrix_publish_rate)"/>  
     <param name="required_nodes" value="$(arg required_nodes)" />
     <param name="distance_diff_threshold" value="$(arg distance_diff_threshold)" />
-  </node>
+  </node> -->
 
   <!-- <node pkg="distance" type="uwb_matrix_ros" name="uwb_node_5" output="screen">
     <param name="node_id" value="5"/>

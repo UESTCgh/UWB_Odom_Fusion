@@ -1,7 +1,7 @@
 #!/bin/bash
 echo "🚀 开始使用 evo 评估并可视化所有轨迹..."
 
-TRAJ_DIR="./trajectories"
+TRAJ_DIR="./trajectories_best"
 OUT_DIR="$TRAJ_DIR/eval_results"
 mkdir -p "$OUT_DIR"
 
@@ -20,7 +20,7 @@ do
     evo_ape tum "$UWB" "$ICP" --align -va --save_plot "$PLOT_APE" > "$LOG"
 
     # 轨迹可视化（只使用 x,y）
-    evo_traj tum "$UWB" "$ICP" --ref="$UWB" --save_plot "$PLOT_TRAJ"
+    evo_traj tum "$UWB" "$ICP" --ref="$UWB" --save_plot "$PLOT_TRAJ" --plot_mode=xy
 
   else
     echo "⚠️ 缺失轨迹文件: ID=$ID"

@@ -310,64 +310,146 @@ struct Printer< ::nlink_parser::LinktrackTagframe0_<ContainerAllocator> >
 {
   template<typename Stream> static void stream(Stream& s, const std::string& indent, const ::nlink_parser::LinktrackTagframe0_<ContainerAllocator>& v)
   {
+    if (false || !indent.empty())
+      s << std::endl;
     s << indent << "role: ";
     Printer<uint8_t>::stream(s, indent + "  ", v.role);
+    if (true || !indent.empty())
+      s << std::endl;
     s << indent << "id: ";
     Printer<uint8_t>::stream(s, indent + "  ", v.id);
+    if (true || !indent.empty())
+      s << std::endl;
     s << indent << "local_time: ";
     Printer<uint32_t>::stream(s, indent + "  ", v.local_time);
+    if (true || !indent.empty())
+      s << std::endl;
     s << indent << "system_time: ";
     Printer<uint32_t>::stream(s, indent + "  ", v.system_time);
+    if (true || !indent.empty())
+      s << std::endl;
     s << indent << "voltage: ";
     Printer<float>::stream(s, indent + "  ", v.voltage);
-    s << indent << "pos_3d[]" << std::endl;
+    if (true || !indent.empty())
+      s << std::endl;
+    s << indent << "pos_3d: ";
+    if (v.pos_3d.empty() || true)
+      s << "[";
     for (size_t i = 0; i < v.pos_3d.size(); ++i)
     {
-      s << indent << "  pos_3d[" << i << "]: ";
-      Printer<float>::stream(s, indent + "  ", v.pos_3d[i]);
+      if (true && i > 0)
+        s << ", ";
+      else if (!true)
+        s << std::endl << indent << "  -";
+      Printer<float>::stream(s, true ? std::string() : indent + "    ", v.pos_3d[i]);
     }
-    s << indent << "eop_3d[]" << std::endl;
+    if (v.pos_3d.empty() || true)
+      s << "]";
+    if (true || !indent.empty())
+      s << std::endl;
+    s << indent << "eop_3d: ";
+    if (v.eop_3d.empty() || true)
+      s << "[";
     for (size_t i = 0; i < v.eop_3d.size(); ++i)
     {
-      s << indent << "  eop_3d[" << i << "]: ";
-      Printer<float>::stream(s, indent + "  ", v.eop_3d[i]);
+      if (true && i > 0)
+        s << ", ";
+      else if (!true)
+        s << std::endl << indent << "  -";
+      Printer<float>::stream(s, true ? std::string() : indent + "    ", v.eop_3d[i]);
     }
-    s << indent << "vel_3d[]" << std::endl;
+    if (v.eop_3d.empty() || true)
+      s << "]";
+    if (true || !indent.empty())
+      s << std::endl;
+    s << indent << "vel_3d: ";
+    if (v.vel_3d.empty() || true)
+      s << "[";
     for (size_t i = 0; i < v.vel_3d.size(); ++i)
     {
-      s << indent << "  vel_3d[" << i << "]: ";
-      Printer<float>::stream(s, indent + "  ", v.vel_3d[i]);
+      if (true && i > 0)
+        s << ", ";
+      else if (!true)
+        s << std::endl << indent << "  -";
+      Printer<float>::stream(s, true ? std::string() : indent + "    ", v.vel_3d[i]);
     }
-    s << indent << "dis_arr[]" << std::endl;
+    if (v.vel_3d.empty() || true)
+      s << "]";
+    if (true || !indent.empty())
+      s << std::endl;
+    s << indent << "dis_arr: ";
+    if (v.dis_arr.empty() || true)
+      s << "[";
     for (size_t i = 0; i < v.dis_arr.size(); ++i)
     {
-      s << indent << "  dis_arr[" << i << "]: ";
-      Printer<float>::stream(s, indent + "  ", v.dis_arr[i]);
+      if (true && i > 0)
+        s << ", ";
+      else if (!true)
+        s << std::endl << indent << "  -";
+      Printer<float>::stream(s, true ? std::string() : indent + "    ", v.dis_arr[i]);
     }
-    s << indent << "angle_3d[]" << std::endl;
+    if (v.dis_arr.empty() || true)
+      s << "]";
+    if (true || !indent.empty())
+      s << std::endl;
+    s << indent << "angle_3d: ";
+    if (v.angle_3d.empty() || true)
+      s << "[";
     for (size_t i = 0; i < v.angle_3d.size(); ++i)
     {
-      s << indent << "  angle_3d[" << i << "]: ";
-      Printer<float>::stream(s, indent + "  ", v.angle_3d[i]);
+      if (true && i > 0)
+        s << ", ";
+      else if (!true)
+        s << std::endl << indent << "  -";
+      Printer<float>::stream(s, true ? std::string() : indent + "    ", v.angle_3d[i]);
     }
-    s << indent << "quaternion[]" << std::endl;
+    if (v.angle_3d.empty() || true)
+      s << "]";
+    if (true || !indent.empty())
+      s << std::endl;
+    s << indent << "quaternion: ";
+    if (v.quaternion.empty() || true)
+      s << "[";
     for (size_t i = 0; i < v.quaternion.size(); ++i)
     {
-      s << indent << "  quaternion[" << i << "]: ";
-      Printer<float>::stream(s, indent + "  ", v.quaternion[i]);
+      if (true && i > 0)
+        s << ", ";
+      else if (!true)
+        s << std::endl << indent << "  -";
+      Printer<float>::stream(s, true ? std::string() : indent + "    ", v.quaternion[i]);
     }
-    s << indent << "imu_gyro_3d[]" << std::endl;
+    if (v.quaternion.empty() || true)
+      s << "]";
+    if (true || !indent.empty())
+      s << std::endl;
+    s << indent << "imu_gyro_3d: ";
+    if (v.imu_gyro_3d.empty() || true)
+      s << "[";
     for (size_t i = 0; i < v.imu_gyro_3d.size(); ++i)
     {
-      s << indent << "  imu_gyro_3d[" << i << "]: ";
-      Printer<float>::stream(s, indent + "  ", v.imu_gyro_3d[i]);
+      if (true && i > 0)
+        s << ", ";
+      else if (!true)
+        s << std::endl << indent << "  -";
+      Printer<float>::stream(s, true ? std::string() : indent + "    ", v.imu_gyro_3d[i]);
     }
-    s << indent << "imu_acc_3d[]" << std::endl;
+    if (v.imu_gyro_3d.empty() || true)
+      s << "]";
+    if (true || !indent.empty())
+      s << std::endl;
+    s << indent << "imu_acc_3d: ";
+    if (v.imu_acc_3d.empty() || true)
+      s << "[";
     for (size_t i = 0; i < v.imu_acc_3d.size(); ++i)
     {
-      s << indent << "  imu_acc_3d[" << i << "]: ";
-      Printer<float>::stream(s, indent + "  ", v.imu_acc_3d[i]);
+      if (true && i > 0)
+        s << ", ";
+      else if (!true)
+        s << std::endl << indent << "  -";
+      Printer<float>::stream(s, true ? std::string() : indent + "    ", v.imu_acc_3d[i]);
     }
+    if (v.imu_acc_3d.empty() || true)
+      s << "]";
   }
 };
 

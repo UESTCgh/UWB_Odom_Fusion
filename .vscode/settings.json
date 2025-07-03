@@ -90,7 +90,8 @@
         "filesystem": "cpp",
         "hash_map": "cpp",
         "hash_set": "cpp",
-        "netfwd": "cpp"
+        "netfwd": "cpp",
+        "ranges": "cpp"
     },
     "cmake.sourceDirectory": "/home/gh/uwb_ws/src/distance"
 }

@@ -177,7 +177,7 @@ class ID3ICPAligner:
         self.pub_path_icp.publish(create_path(aligned))
         self.pub_path_uwb.publish(create_path(uwb))
 
-    def save_traj_as_tum(self, traj, filename, folder="trajectories"):
+    def save_traj_as_tum(self, traj, filename, folder="trajectories_best"):
         # 创建保存文件夹（如果不存在）
         os.makedirs(folder, exist_ok=True)
 

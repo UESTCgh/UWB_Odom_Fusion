@@ -200,10 +200,16 @@ struct Printer< ::nlink_parser::TofsenseMFrame0Pixel_<ContainerAllocator> >
 {
   template<typename Stream> static void stream(Stream& s, const std::string& indent, const ::nlink_parser::TofsenseMFrame0Pixel_<ContainerAllocator>& v)
   {
+    if (false || !indent.empty())
+      s << std::endl;
     s << indent << "dis: ";
     Printer<float>::stream(s, indent + "  ", v.dis);
+    if (true || !indent.empty())
+      s << std::endl;
     s << indent << "dis_status: ";
     Printer<uint8_t>::stream(s, indent + "  ", v.dis_status);
+    if (true || !indent.empty())
+      s << std::endl;
     s << indent << "signal_strength: ";
     Printer<uint16_t>::stream(s, indent + "  ", v.signal_strength);
   }

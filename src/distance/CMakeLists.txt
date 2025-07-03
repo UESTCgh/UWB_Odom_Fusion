@@ -27,3 +27,9 @@ add_dependencies(uwb_matrix_ros ${catkin_EXPORTED_TARGETS})
 target_link_libraries(uwb_matrix_ros
   ${catkin_LIBRARIES}
 )
+
+add_executable(uwb_matrix_ros_new src/uwb_matrix_ros_tx.cpp)
+add_dependencies(uwb_matrix_ros_new ${catkin_EXPORTED_TARGETS})
+target_link_libraries(uwb_matrix_ros_new
+  ${catkin_LIBRARIES}
+)

@@ -214,22 +214,44 @@ struct Printer< ::nlink_parser::LinktrackTag_<ContainerAllocator> >
 {
   template<typename Stream> static void stream(Stream& s, const std::string& indent, const ::nlink_parser::LinktrackTag_<ContainerAllocator>& v)
   {
+    if (false || !indent.empty())
+      s << std::endl;
     s << indent << "role: ";
     Printer<uint8_t>::stream(s, indent + "  ", v.role);
+    if (true || !indent.empty())
+      s << std::endl;
     s << indent << "id: ";
     Printer<uint8_t>::stream(s, indent + "  ", v.id);
-    s << indent << "pos_3d[]" << std::endl;
+    if (true || !indent.empty())
+      s << std::endl;
+    s << indent << "pos_3d: ";
+    if (v.pos_3d.empty() || true)
+      s << "[";
     for (size_t i = 0; i < v.pos_3d.size(); ++i)
     {
-      s << indent << "  pos_3d[" << i << "]: ";
-      Printer<float>::stream(s, indent + "  ", v.pos_3d[i]);
+      if (true && i > 0)
+        s << ", ";
+      else if (!true)
+        s << std::endl << indent << "  -";
+      Printer<float>::stream(s, true ? std::string() : indent + "    ", v.pos_3d[i]);
     }
-    s << indent << "dis_arr[]" << std::endl;
+    if (v.pos_3d.empty() || true)
+      s << "]";
+    if (true || !indent.empty())
+      s << std::endl;
+    s << indent << "dis_arr: ";
+    if (v.dis_arr.empty() || true)
+      s << "[";
     for (size_t i = 0; i < v.dis_arr.size(); ++i)
     {
-      s << indent << "  dis_arr[" << i << "]: ";
-      Printer<float>::stream(s, indent + "  ", v.dis_arr[i]);
+      if (true && i > 0)
+        s << ", ";
+      else if (!true)
+        s << std::endl << indent << "  -";
+      Printer<float>::stream(s, true ? std::string() : indent + "    ", v.dis_arr[i]);
     }
+    if (v.dis_arr.empty() || true)
+      s << "]";
   }
 };
 

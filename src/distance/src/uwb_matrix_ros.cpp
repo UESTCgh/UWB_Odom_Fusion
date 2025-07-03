@@ -322,7 +322,7 @@ public:
                     frame.distances.push_back({node_id_, node.id, node.dis, ros::Time(uwb_time_sec)});
                 }
             }
-            if (frame.received_nodes.size() >= required_nodes_) {
+            if (frame.received_nodes.size() >= 1) {
                 processFrameData(uwb_time_sec, frame);
                 frame_data_map_.erase(uwb_time_sec);
             }
@@ -604,12 +604,28 @@ public:
         }
     } 
 
+    void cleanExpiredFrames() {
+        std::lock_guard<std::mutex> lock(frame_data_mutex_);
+        ros::Time now = ros::Time::now();
+        double expire_time = now.toSec() - 1.0; // 设置为 1 秒前的数据
+
+        for (auto it = frame_data_map_.begin(); it != frame_data_map_.end();) {
+                if (it->first < expire_time) {
+                    it = frame_data_map_.erase(it);
+                } else {
+                    ++it;
+                }
+            }
+    }
+
+
     void publishMatrixCallback(const ros::TimerEvent&) {
         //发布
         publishMatrix();
         publishPoseMatrix();
         publishTargetMatrix();
         publishCustomMatrices();
+     
     }
 
     // 定时打印距离矩阵和时间戳
@@ -619,49 +635,51 @@ public:
         // 距离矩阵
         ROS_INFO("[Node %d] Distance Buffer Entries:", node_id_);
 
-        // std::string header = "ID |";
-        // for (int j = 0; j < total_nodes_; ++j) {
-        //     header += "  " + std::to_string(j) + "  |";
-        // }
-        // ROS_INFO("%s", header.c_str());
-        // for (int i = 0; i < total_nodes_; ++i) {
-        //     std::string row = std::to_string(i) + " |";
+        std::string header = "ID |";
+        for (int j = 0; j < total_nodes_; ++j) {
+            header += "  " + std::to_string(j) + "  |";
+        }
+        ROS_INFO("%s", header.c_str());
+        for (int i = 0; i < total_nodes_; ++i) {
+            std::string row = std::to_string(i) + " |";
             
-        //     for (int j = 0; j < total_nodes_; ++j) {
-        //         if (distance_matrix_[i][j] < 0) {
-        //             row += "   -  |"; // 未知距离
-        //         } else {
-        //             char buffer[8];
-        //             sprintf(buffer, "%5.2f |", distance_matrix_[i][j]);
-        //             row += buffer;
-        //         }
-        //     }
-        //     ROS_INFO("%s", row.c_str());
-        // }
+            for (int j = 0; j < total_nodes_; ++j) {
+                if (distance_matrix_[i][j] < 0) {
+                    row += "   -  |"; // 未知距离
+                } else {
+                    char buffer[8];
+                    sprintf(buffer, "%5.2f |", distance_matrix_[i][j]);
+                    row += buffer;
+                }
+            }
+            ROS_INFO("%s", row.c_str());
+        }
+
+        ROS_INFO("frame_data_map_ size: %lu", frame_data_map_.size());
 
         // Pose
-        ROS_INFO("[Node %d] Pose Matrix (x, y, z, yaw):", node_id_);
-        for (int i = 0; i < total_nodes_; ++i) {
-            std::string row = "ID " + std::to_string(i) + ": ";
-            for (int j = 0; j < 4; ++j) {
-                char buffer[16];
-                sprintf(buffer, "%7.3f ", pose_matrix_[i][j]);
-                row += buffer;
-            }
-            ROS_INFO("%s", row.c_str());
-        }      
+        // ROS_INFO("[Node %d] Pose Matrix (x, y, z, yaw):", node_id_);
+        // for (int i = 0; i < total_nodes_; ++i) {
+        //     std::string row = "ID " + std::to_string(i) + ": ";
+        //     for (int j = 0; j < 4; ++j) {
+        //         char buffer[16];
+        //         sprintf(buffer, "%7.3f ", pose_matrix_[i][j]);
+        //         row += buffer;
+        //     }
+        //     ROS_INFO("%s", row.c_str());
+        // }      
 
-        // Goal
-        ROS_INFO("[Node %d] Goal Matrix (x, y, z, yaw):", node_id_);
-        for (int i = 0; i < total_nodes_; ++i) {
-            std::string row = "ID " + std::to_string(i) + ": ";
-            for (int j = 0; j < 4; ++j) {
-                char buffer[16];
-                sprintf(buffer, "%7.3f ", target_matrix_[i][j]);
-                row += buffer;
-            }
-            ROS_INFO("%s", row.c_str());
-        }      
+        // // Goal
+        // ROS_INFO("[Node %d] Goal Matrix (x, y, z, yaw):", node_id_);
+        // for (int i = 0; i < total_nodes_; ++i) {
+        //     std::string row = "ID " + std::to_string(i) + ": ";
+        //     for (int j = 0; j < 4; ++j) {
+        //         char buffer[16];
+        //         sprintf(buffer, "%7.3f ", target_matrix_[i][j]);
+        //         row += buffer;
+        //     }
+        //     ROS_INFO("%s", row.c_str());
+        // }      
 
         // // 打印接收到的 custom_matrix
         // ROS_INFO("[Node %d] Custom Matrices from other nodes:", node_id_);
@@ -674,6 +692,7 @@ public:
         //         ROS_INFO("    Row %d: [%.2f, %.2f]", i, mat[i][0], mat[i][1]);
         //     }
         // }
+        cleanExpiredFrames();
     }
 };
 
@@ -683,3 +702,5 @@ int main(int argc, char** argv) {
     ros::spin();
     return 0;
 }
+
+

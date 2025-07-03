@@ -219,20 +219,33 @@ struct Printer< ::nlink_parser::IotFrame0_<ContainerAllocator> >
 {
   template<typename Stream> static void stream(Stream& s, const std::string& indent, const ::nlink_parser::IotFrame0_<ContainerAllocator>& v)
   {
+    if (false || !indent.empty())
+      s << std::endl;
     s << indent << "uid: ";
     Printer<uint32_t>::stream(s, indent + "  ", v.uid);
+    if (true || !indent.empty())
+      s << std::endl;
     s << indent << "system_time: ";
     Printer<uint32_t>::stream(s, indent + "  ", v.system_time);
+    if (true || !indent.empty())
+      s << std::endl;
     s << indent << "io_status: ";
     Printer<uint8_t>::stream(s, indent + "  ", v.io_status);
-    s << indent << "nodes[]" << std::endl;
+    if (true || !indent.empty())
+      s << std::endl;
+    s << indent << "nodes: ";
+    if (v.nodes.empty() || false)
+      s << "[";
     for (size_t i = 0; i < v.nodes.size(); ++i)
     {
-      s << indent << "  nodes[" << i << "]: ";
-      s << std::endl;
-      s << indent;
-      Printer< ::nlink_parser::IotFrame0Node_<ContainerAllocator> >::stream(s, indent + "    ", v.nodes[i]);
+      if (false && i > 0)
+        s << ", ";
+      else if (!false)
+        s << std::endl << indent << "  -";
+      Printer< ::nlink_parser::IotFrame0Node_<ContainerAllocator> >::stream(s, false ? std::string() : indent + "    ", v.nodes[i]);
     }
+    if (v.nodes.empty() || false)
+      s << "]";
   }
 };
 

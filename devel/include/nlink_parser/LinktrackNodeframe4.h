@@ -236,24 +236,41 @@ struct Printer< ::nlink_parser::LinktrackNodeframe4_<ContainerAllocator> >
 {
   template<typename Stream> static void stream(Stream& s, const std::string& indent, const ::nlink_parser::LinktrackNodeframe4_<ContainerAllocator>& v)
   {
+    if (false || !indent.empty())
+      s << std::endl;
     s << indent << "role: ";
     Printer<uint8_t>::stream(s, indent + "  ", v.role);
+    if (true || !indent.empty())
+      s << std::endl;
     s << indent << "id: ";
     Printer<uint8_t>::stream(s, indent + "  ", v.id);
+    if (true || !indent.empty())
+      s << std::endl;
     s << indent << "local_time: ";
     Printer<uint32_t>::stream(s, indent + "  ", v.local_time);
+    if (true || !indent.empty())
+      s << std::endl;
     s << indent << "system_time: ";
     Printer<uint32_t>::stream(s, indent + "  ", v.system_time);
+    if (true || !indent.empty())
+      s << std::endl;
     s << indent << "voltage: ";
     Printer<float>::stream(s, indent + "  ", v.voltage);
-    s << indent << "tags[]" << std::endl;
+    if (true || !indent.empty())
+      s << std::endl;
+    s << indent << "tags: ";
+    if (v.tags.empty() || false)
+      s << "[";
     for (size_t i = 0; i < v.tags.size(); ++i)
     {
-      s << indent << "  tags[" << i << "]: ";
-      s << std::endl;
-      s << indent;
-      Printer< ::nlink_parser::LinktrackNode4Tag_<ContainerAllocator> >::stream(s, indent + "    ", v.tags[i]);
+      if (false && i > 0)
+        s << ", ";
+      else if (!false)
+        s << std::endl << indent << "  -";
+      Printer< ::nlink_parser::LinktrackNode4Tag_<ContainerAllocator> >::stream(s, false ? std::string() : indent + "    ", v.tags[i]);
     }
+    if (v.tags.empty() || false)
+      s << "]";
   }
 };
 
