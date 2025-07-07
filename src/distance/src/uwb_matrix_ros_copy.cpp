@@ -17,7 +17,7 @@
 话题发送实例：
 
 1.发送goal点
-rostopic pub /uwb1/target_position geometry_msgs/PoseStamped "header:
+rostopic pub -r 180 /uwb1/target_position geometry_msgs/PoseStamped "header:
   frame_id: 'map'
   stamp:
     secs: 0
@@ -25,7 +25,7 @@ rostopic pub /uwb1/target_position geometry_msgs/PoseStamped "header:
 pose:
   position:
     x: 1.0
-    y: 2.0
+    y: -0.8
     z: 4.0
   orientation:
     x: 0.0
@@ -36,13 +36,13 @@ pose:
 订阅话题：rostopic echo /uwb3/pose_matrix 
 
 2.发送odom点
-rostopic pub /odom2 nav_msgs/Odometry \
-'{header: {stamp: now, frame_id: "map"}, child_frame_id: "base_link", pose: {pose: {position: {x: 1111111.0, y: 2.44, z: 111}, orientation: {x: 0.0, y: 0.0, z: 0.707, w: 0.707}}}, twist: {twist: {linear: {x: 0.0, y: 0.0, z: 0.0}, angular: {x: 0.0, y: 0.0, z: 0.0}}}}'
+rostopic pub -r 50 /odom2 nav_msgs/Odometry \
+'{header: {stamp: now, frame_id: "map"}, child_frame_id: "base_link", pose: {pose: {position: {x: 1111111.0, y: 2.44, z: 0.0}, orientation: {x: 0.0, y: 0.0, z: 0.707, w: 0.707}}}, twist: {twist: {linear: {x: 0.0, y: 0.0, z: 0.0}, angular: {x: 0.0, y: 0.0, z: 0.0}}}}'
 
 订阅话题：rostopic echo /uwb3/target_matrix 
 
 3.发送坐标矩阵
-rostopic pub /uwb2/custom_matrix std_msgs/Float32MultiArray "layout:
+rostopic pub -r 50 /uwb2/custom_matrix std_msgs/Float32MultiArray "layout:
   dim:
     - label: 'rows'
       size: 4
@@ -84,10 +84,10 @@ private:
     std::vector<std::vector<float>> target_matrix_;  // 行：节点ID，列：(x, y, z)
     std::vector<std::vector<float>> custom_matrix_;  // 4行2列
 
-    std::set<int> received_nodes_;
-    bool self_data_collected_ = false;
+    // std::set<int> received_nodes_;
+    // bool self_data_collected_ = false;
 
-    ros::Time self_timestamp_;
+    // ros::Time self_timestamp_;
 
     // 距离数据
     struct DistanceEntry {
@@ -96,7 +96,7 @@ private:
         float distance;
         ros::Time timestamp;
     };
-    std::vector<DistanceEntry> distance_buffer_;
+    // std::vector<DistanceEntry> distance_buffer_;
 
     // 目标点
     struct Target {
@@ -124,6 +124,17 @@ private:
     PoseInfo self_pose_;
     PoseInfo target_pose_;
 
+    struct FrameData {
+        std::map<int, PoseInfo> poses;
+        std::map<int, PoseInfo> targets;
+        std::map<int, std::vector<std::vector<float>>> custom_matrices;
+        std::vector<DistanceEntry> distances;
+        std::set<int> received_nodes;
+    };
+    std::map<double, FrameData> frame_data_map_;
+    std::mutex frame_data_mutex_;
+    
+
     ros::Time last_publish_time_;
     ros::Timer publish_timer_;
     ros::Timer print_timer_;
@@ -135,6 +146,8 @@ private:
     std::mutex data_mutex_;
     std::string odom_topic_;
     std::string target_topic_;
+
+    const double TIME_TOLERANCE = 0.01; // 10ms
 
 public:
     UWBNode() : private_nh_("~") {
@@ -187,6 +200,11 @@ public:
         publish_timer_ = nh_.createTimer(ros::Duration(publish_period_), &UWBNode::publishMatrixCallback, this);
     }
 
+    bool isSameFrame(double t1, double t2) {
+        return fabs(t1 - t2) < TIME_TOLERANCE;
+    }
+
+
     void odomCallback(const nav_msgs::Odometry::ConstPtr& msg) {
         std::lock_guard<std::mutex> lock(data_mutex_);
         self_pose_.x = msg->pose.pose.position.x;
@@ -236,7 +254,7 @@ public:
     void customMatrixCallback(const std_msgs::Float32MultiArray::ConstPtr& msg) {
         std::lock_guard<std::mutex> lock(data_mutex_);
     
-        if (msg->data.size() != 8) {
+        if (msg->data.size() != total_nodes_ * 2) {
             ROS_WARN("Received custom_matrix size %lu != 8", msg->data.size());
             return;
         }
@@ -247,7 +265,7 @@ public:
             }
         }
     
-        ROS_INFO("Updated custom_matrix for node %d", node_id_);
+        // ROS_INFO("Updated custom_matrix for node %d", node_id_);
     }
     
     //拼装
@@ -257,7 +275,10 @@ public:
         ros::Time uwb_timestamp;
         uwb_timestamp.sec = msg->system_time / 1000;
         uwb_timestamp.nsec = (msg->system_time % 1000) * 1000000;
-        self_timestamp_ = uwb_timestamp;
+        // self_timestamp_ = uwb_timestamp;
+        double uwb_time_sec = msg->system_time / 1000.0;
+
+        auto& frame = frame_data_map_[uwb_time_sec];  // 这一行非常关键
 
         std_msgs::String data_trans_msg;
         std::stringstream ss;
@@ -283,152 +304,193 @@ public:
             if (i > 0) ss << ",";
             ss << (int)node.id << ":" << std::fixed << std::setprecision(2) << node.dis;
             if (node.id < total_nodes_ && node.dis > 0.001) {
-                distance_buffer_.push_back({node_id_, node.id, node.dis, uwb_timestamp});
+                frame.distances.push_back({node_id_, node.id, node.dis, uwb_timestamp});
             }
         }
 
-        self_data_collected_ = true;
+        {
+            std::lock_guard<std::mutex> frame_lock(frame_data_mutex_);
+            auto& frame = frame_data_map_[uwb_time_sec];
+            frame.poses[node_id_] = self_pose_;
+            frame.targets[node_id_] = target_pose_;
+            frame.custom_matrices[node_id_] = custom_matrix_;
+            frame.received_nodes.insert(node_id_);
+
+            for (size_t i = 0; i < msg->nodes.size(); ++i) {
+                const auto& node = msg->nodes[i];
+                if (node.id < total_nodes_ && node.dis > 0.001) {
+                    frame.distances.push_back({node_id_, node.id, node.dis, ros::Time(uwb_time_sec)});
+                }
+            }
+            if (frame.received_nodes.size() >= 1) {
+                processFrameData(uwb_time_sec, frame);
+                frame_data_map_.erase(uwb_time_sec);
+            }
+        }
+
+        // self_data_collected_ = true;
         data_trans_msg.data = ss.str();
         data_trans_pub_.publish(data_trans_msg);
     }
+
+    void processFrameData(double timestamp, FrameData& frame) {
+        for (const auto& entry : frame.distances) {
+            int sid = entry.source_id;
+            int tid = entry.target_id;
+        
+            if (sid < total_nodes_ && tid < total_nodes_) {
+                float dz = pose_matrix_[sid][2] - pose_matrix_[tid][2];  // Z值差
+                float d3d_squared = entry.distance * entry.distance;
+                float dz_squared = dz * dz;
+        
+                float d2d = std::sqrt(std::max(0.0f, d3d_squared - dz_squared));  // 避免负值
+        
+                distance_matrix_[sid][tid] = d2d;
+            }
+        }
+    
+        for (const auto& kv : frame.poses) {
+            int id = kv.first;
+            pose_matrix_[id][0] = kv.second.x;
+            pose_matrix_[id][1] = kv.second.y;
+            pose_matrix_[id][2] = kv.second.z;
+            pose_matrix_[id][3] = kv.second.yaw;
+        }
+    
+        for (const auto& kv : frame.targets) {
+            int id = kv.first;
+            target_matrix_[id][0] = kv.second.x;
+            target_matrix_[id][1] = kv.second.y;
+            target_matrix_[id][2] = kv.second.z;
+            target_matrix_[id][3] = kv.second.yaw;
+        }
+    
+        for (const auto& kv : frame.custom_matrices) {
+            int id = kv.first;
+            custom_matrix_map_[id] = kv.second;
+        }
+    
+        // ROS_INFO("Frame at time %.3f processed and fused", timestamp);
+    }    
     
     //解析函数
     void parseNodeframe0(const nlink_parser::LinktrackNodeframe0::ConstPtr& msg) {
         std::lock_guard<std::mutex> lock(data_mutex_);
         for (const auto& node : msg->nodes) {
-            std::string data_str(node.data.begin(), node.data.end());
-            size_t id_pos = 0;
-            size_t time_pos = data_str.find('|');
-            if (time_pos == std::string::npos) continue;
-            int source_id = std::stoi(data_str.substr(id_pos, time_pos));
-            received_nodes_.insert(source_id);
-
-            //time
-            size_t second_pos = data_str.find('|', time_pos + 1);
-            double timestamp = std::stod(data_str.substr(time_pos + 1, second_pos - time_pos - 1));
-            ros::Time parsed_time(timestamp);
-
-            //target
-            size_t target_pos = data_str.find('|', second_pos + 1);
-            std::string target = data_str.substr(second_pos + 1, target_pos - second_pos - 1);
-            std::stringstream ss_target(target);
-            float x, y, z,yaw;
-            char delimiter;
-            if (ss_target >> x >> delimiter >> y >> delimiter >> z>> delimiter >>yaw) {
-                // ROS_INFO("Parsed target position: ID=%d, x=%.2f, y=%.2f, z=%.2f", source_id, x, y, z);
-                if (source_id < total_nodes_) {
-                    if (source_id != node_id_) {  //关键区别
-                        target_matrix_[source_id][0] = x;
-                        target_matrix_[source_id][1] = y;
-                        target_matrix_[source_id][2] = z;
-                        target_matrix_[source_id][3] = yaw;
+            try {
+                std::string data_str(node.data.begin(), node.data.end());
+    
+                // 分割字段
+                std::vector<std::string> segments;
+                size_t start = 0, end = 0;
+                while ((end = data_str.find('|', start)) != std::string::npos) {
+                    segments.push_back(data_str.substr(start, end - start));
+                    start = end + 1;
+                }
+                segments.push_back(data_str.substr(start));
+    
+                if (segments.size() < 5) {
+                    ROS_WARN("Malformed data: too few segments (%lu): %s", segments.size(), data_str.c_str());
+                    continue;
+                }
+    
+                int source_id = std::stoi(segments[0]);
+                double timestamp = std::stod(segments[1]);
+                ros::Time parsed_time(timestamp);
+    
+                std::lock_guard<std::mutex> frame_lock(frame_data_mutex_);
+                auto& frame = frame_data_map_[timestamp];
+                frame.received_nodes.insert(source_id);
+    
+                // 1. 目标点
+                {
+                    std::stringstream ss(segments[2]);
+                    float x, y, z, yaw;
+                    char delim;
+                    if (ss >> x >> delim >> y >> delim >> z >> delim >> yaw) {
+                        if (source_id < total_nodes_ && source_id != node_id_) {
+                            target_matrix_[source_id][0] = x;
+                            target_matrix_[source_id][1] = y;
+                            target_matrix_[source_id][2] = z;
+                            target_matrix_[source_id][3] = yaw;
+                        }
+                    } else {
+                        ROS_WARN("Failed to parse target for node %d: %s", source_id, segments[2].c_str());
                     }
                 }
-            } else {
-                ROS_WARN("Failed to parse target position from data: %s", target.c_str());
-                // target_buffer_.push_back({source_id, 0.0f, 0.0f, 0.0f}); // Default to (0, 0, 0) if parsing fails
-            }
-
-            // odom
-            size_t odom_pos = data_str.find('|', target_pos + 1);
-            if (odom_pos != std::string::npos) {
-                std::string odom_data = data_str.substr(target_pos + 1, odom_pos - target_pos - 1);
-                std::stringstream ss_odom(odom_data);
-
-                float x, y, z, yaw;
-                char delimiter;
-
-                if (ss_odom >> x >> delimiter >> y >> delimiter >> z >> delimiter >> yaw) {
-                    // Store x, y, z, yaw, and timestamp for different odometry data
-                    // pose_buffer_.push_back({source_id, x, y, z, yaw, parsed_time});
-                    // ROS_INFO("Parsed odometry data: ID=%d, x=%.2f, y=%.2f, z=%.2f, yaw=%.2f, timestamp=%.2f", source_id, x, y, z, yaw, parsed_time.toSec());
-                    // 更新矩阵
-                    if (source_id < total_nodes_) {
-                        pose_matrix_[source_id][0] = x;
-                        pose_matrix_[source_id][1] = y;
-                        pose_matrix_[source_id][2] = z;
-                        pose_matrix_[source_id][3] = yaw;
-                    }
-                } else {
-                    ROS_WARN("Failed to parse odometry data from: %s", odom_data.c_str());
-                }
-            } else {
-                ROS_WARN("Odometry data not found in string: %s", data_str.c_str());
-            }
-
-
-            // 接收 custom_matrix
-            size_t matrix_pos = data_str.find('|', odom_pos + 1);
-            if (matrix_pos != std::string::npos) {
-                std::string matrix_data = data_str.substr(odom_pos + 1, matrix_pos - odom_pos - 1);
-                std::stringstream ss(matrix_data);
-                std::string val_str;
-                std::vector<float> values;
-
-                while (std::getline(ss, val_str, ',')) {
-                    try {
-                        values.push_back(std::stof(val_str));
-                    } catch (...) {
-                        ROS_WARN("Invalid float in custom matrix from node %d: %s", source_id, val_str.c_str());
+    
+                // 2. odom
+                {
+                    std::stringstream ss(segments[3]);
+                    float x, y, z, yaw;
+                    char delim;
+                    if (ss >> x >> delim >> y >> delim >> z >> delim >> yaw) {
+                        if (source_id < total_nodes_) {
+                            pose_matrix_[source_id][0] = x;
+                            pose_matrix_[source_id][1] = y;
+                            pose_matrix_[source_id][2] = z;
+                            pose_matrix_[source_id][3] = yaw;
+                        }
+                    } else {
+                        ROS_WARN("Failed to parse odom for node %d: %s", source_id, segments[3].c_str());
                     }
                 }
-
-                if (values.size() == total_nodes_*2) {
-                    std::vector<std::vector<float>> parsed_matrix(total_nodes_, std::vector<float>(2, 0.0f));
-                    for (int i = 0; i < total_nodes_; ++i) {
-                        for (int j = 0; j < 2; ++j) {
-                            parsed_matrix[i][j] = values[i * 2 + j];
+    
+                // 3. custom_matrix
+                {
+                    std::stringstream ss(segments[4]);
+                    std::string val;
+                    std::vector<float> values;
+                    while (getline(ss, val, ',')) {
+                        try {
+                            values.push_back(std::stof(val));
+                        } catch (...) {
+                            ROS_WARN("Invalid float in custom matrix from node %d: %s", source_id, val.c_str());
                         }
                     }
-                    //存储
-                    custom_matrix_map_[source_id] = parsed_matrix;
-                } else {
-                    ROS_WARN("Matrix size mismatch from node %d: expected 8 values, got %lu", source_id, values.size());
-                }
-            }
-
-            // distances
-            size_t dist_pos = data_str.rfind('|');
-            if (dist_pos == std::string::npos || dist_pos <= second_pos) continue;
-            std::string distances = data_str.substr(dist_pos + 1);
-
-            std::stringstream ss(distances);
-            std::string pair;
-            while (getline(ss, pair, ',')) {
-                size_t colon_pos = pair.find(':');
-                if (colon_pos != std::string::npos) {
-                    int target_id = std::stoi(pair.substr(0, colon_pos));
-                    float distance = std::stof(pair.substr(colon_pos + 1));
-                    if (target_id < total_nodes_ && source_id < total_nodes_ && distance > 0.001) {
-                        distance_buffer_.push_back({source_id, target_id, distance, parsed_time});
+                    if (values.size() == total_nodes_ * 2) {
+                        std::vector<std::vector<float>> mat(total_nodes_, std::vector<float>(2, 0.0f));
+                        for (int i = 0; i < total_nodes_; ++i)
+                            for (int j = 0; j < 2; ++j)
+                                mat[i][j] = values[i * 2 + j];
+                        custom_matrix_map_[source_id] = mat;
+                    } else {
+                        ROS_WARN("Matrix size mismatch from node %d: expected %d, got %lu", source_id, total_nodes_ * 2, values.size());
                     }
                 }
-            }
-        }
-    }
-
-    //对齐uwb
-    void checkAndUpdateMatrix() {
-        if (self_data_collected_ && (received_nodes_.size() + 1 >= required_nodes_)) {
-            std::map<std::pair<int, int>, DistanceEntry> best_entry_map;
-            for (const auto& entry : distance_buffer_) {
-                auto key = std::make_pair(entry.source_id, entry.target_id);
-                if (best_entry_map.find(key) == best_entry_map.end()) {
-                    best_entry_map[key] = entry;
-                } else {
-                    double old_diff = std::abs((best_entry_map[key].timestamp - self_timestamp_).toSec());
-                    double new_diff = std::abs((entry.timestamp - self_timestamp_).toSec());
-                    if (new_diff < old_diff) {
-                        best_entry_map[key] = entry;
+    
+                // 4. distances（第5段可能不存在，需检查）
+                if (segments.size() >= 6) {
+                    std::stringstream ss(segments[5]);
+                    std::string pair;
+                    while (getline(ss, pair, ',')) {
+                        size_t colon = pair.find(':');
+                        if (colon != std::string::npos) {
+                            try {
+                                int tid = std::stoi(pair.substr(0, colon));
+                                float dist = std::stof(pair.substr(colon + 1));
+                                if (tid < total_nodes_ && dist > 0.001) {
+                                    frame.distances.push_back({source_id, tid, dist, parsed_time});
+                                }
+                            } catch (...) {
+                                ROS_WARN("Bad distance entry from node %d: %s", source_id, pair.c_str());
+                            }
+                        }
                     }
                 }
+    
+                if (frame.received_nodes.size() >= required_nodes_) {
+                    processFrameData(timestamp, frame);
+                    frame_data_map_.erase(timestamp);
+                }
+    
+            } catch (const std::exception& e) {
+                ROS_ERROR("Exception in parseNodeframe0: %s", e.what());
+                continue;  // 跳过当前节点
+            } catch (...) {
+                ROS_ERROR("Unknown error in parseNodeframe0.");
+                continue;
             }
-            for (const auto& item : best_entry_map) {
-                distance_matrix_[item.second.source_id][item.second.target_id] = item.second.distance;
-            }
-            distance_buffer_.clear();
-            received_nodes_.clear();
-            self_data_collected_ = false;
         }
     }
 
@@ -543,7 +605,6 @@ public:
     } 
 
     void publishMatrixCallback(const ros::TimerEvent&) {
-        checkAndUpdateMatrix();
         //发布
         publishMatrix();
         publishPoseMatrix();
@@ -555,27 +616,14 @@ public:
     void printMatrixCallback(const ros::TimerEvent& event) {
         std::lock_guard<std::mutex> lock(data_mutex_);
 
-        // 打印距离矩阵
-        ROS_INFO("[Node %d] Distance Buffer Entries (with timestamps):", node_id_);
-        std::set<int> printed_sources;
-        for (const auto& entry : distance_buffer_) {
-            if (printed_sources.insert(entry.source_id).second) {
-                ROS_INFO("  [UWB%d] time = %.3f", entry.source_id, entry.timestamp.toSec());
-            }
-        }
+        // 距离矩阵
+        ROS_INFO("[Node %d] Distance Buffer Entries:", node_id_);
 
         std::string header = "ID |";
         for (int j = 0; j < total_nodes_; ++j) {
             header += "  " + std::to_string(j) + "  |";
         }
         ROS_INFO("%s", header.c_str());
-
-        std::string separator = "---|";
-        for (int j = 0; j < total_nodes_; ++j) {
-            separator += "------|";
-        }
-        ROS_INFO("%s", separator.c_str());
-
         for (int i = 0; i < total_nodes_; ++i) {
             std::string row = std::to_string(i) + " |";
             
@@ -590,44 +638,42 @@ public:
             }
             ROS_INFO("%s", row.c_str());
         }
-        
-        ROS_INFO("%s", separator.c_str());
 
         // Pose
-        ROS_INFO("[Node %d] Pose Matrix (x, y, z, yaw):", node_id_);
-        for (int i = 0; i < total_nodes_; ++i) {
-            std::string row = "ID " + std::to_string(i) + ": ";
-            for (int j = 0; j < 4; ++j) {
-                char buffer[16];
-                sprintf(buffer, "%7.3f ", pose_matrix_[i][j]);
-                row += buffer;
-            }
-            ROS_INFO("%s", row.c_str());
-        }      
+        // ROS_INFO("[Node %d] Pose Matrix (x, y, z, yaw):", node_id_);
+        // for (int i = 0; i < total_nodes_; ++i) {
+        //     std::string row = "ID " + std::to_string(i) + ": ";
+        //     for (int j = 0; j < 4; ++j) {
+        //         char buffer[16];
+        //         sprintf(buffer, "%7.3f ", pose_matrix_[i][j]);
+        //         row += buffer;
+        //     }
+        //     ROS_INFO("%s", row.c_str());
+        // }      
 
-        // Goal
-        ROS_INFO("[Node %d] Goal Matrix (x, y, z, yaw):", node_id_);
-        for (int i = 0; i < total_nodes_; ++i) {
-            std::string row = "ID " + std::to_string(i) + ": ";
-            for (int j = 0; j < 4; ++j) {
-                char buffer[16];
-                sprintf(buffer, "%7.3f ", target_matrix_[i][j]);
-                row += buffer;
-            }
-            ROS_INFO("%s", row.c_str());
-        }      
+        // // Goal
+        // ROS_INFO("[Node %d] Goal Matrix (x, y, z, yaw):", node_id_);
+        // for (int i = 0; i < total_nodes_; ++i) {
+        //     std::string row = "ID " + std::to_string(i) + ": ";
+        //     for (int j = 0; j < 4; ++j) {
+        //         char buffer[16];
+        //         sprintf(buffer, "%7.3f ", target_matrix_[i][j]);
+        //         row += buffer;
+        //     }
+        //     ROS_INFO("%s", row.c_str());
+        // }      
 
-        // 打印接收到的 custom_matrix
-        ROS_INFO("[Node %d] Custom Matrices from other nodes:", node_id_);
-        for (const auto& pair : custom_matrix_map_) {
-            int source_id = pair.first;
-            const auto& mat = pair.second;
+        // // 打印接收到的 custom_matrix
+        // ROS_INFO("[Node %d] Custom Matrices from other nodes:", node_id_);
+        // for (const auto& pair : custom_matrix_map_) {
+        //     int source_id = pair.first;
+        //     const auto& mat = pair.second;
 
-            ROS_INFO("  From node %d:", source_id);
-            for (int i = 0; i < total_nodes_; ++i) {
-                ROS_INFO("    Row %d: [%.2f, %.2f]", i, mat[i][0], mat[i][1]);
-            }
-        }
+        //     ROS_INFO("  From node %d:", source_id);
+        //     for (int i = 0; i < total_nodes_; ++i) {
+        //         ROS_INFO("    Row %d: [%.2f, %.2f]", i, mat[i][0], mat[i][1]);
+        //     }
+        // }
     }
 };
 

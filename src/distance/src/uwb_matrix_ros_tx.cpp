@@ -45,7 +45,7 @@ rostopic pub -r 50 /odom2 nav_msgs/Odometry \
 订阅话题：rostopic echo /uwb3/target_matrix 
 
 3.发送坐标矩阵
-rostopic pub -r 50 /uwb2/custom_matrix std_msgs/Float32MultiArray "layout:
+rostopic pub -r 50 /uwb3/custom_matrix std_msgs/Float32MultiArray "layout:
   dim:
     - label: 'rows'
       size: 4
