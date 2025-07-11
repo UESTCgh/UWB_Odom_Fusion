@@ -81,20 +81,19 @@ private:
 
     ros::Timer cleanup_timer_;
 
-    std::map<int, std::vector<std::vector<float>>> custom_matrix_map_;
     std::map<int, ros::Publisher> matrix_from_others_pub_;
     std::map<std::pair<int, int>, std::pair<float, ros::Time>> last_valid_dist_map_;
-
 
     std::vector<std::vector<float>> distance_matrix_;
     std::vector<std::vector<float>> pose_matrix_;
     std::vector<std::vector<float>> target_matrix_;  // 行：节点ID，列：(x, y, z)
     std::vector<std::vector<float>> custom_matrix_;  // 4行2列
 
-    // std::set<int> received_nodes_;
-    // bool self_data_collected_ = false;
-
-    // ros::Time self_timestamp_;
+    struct TimedMatrix {
+        std::vector<std::vector<float>> matrix;
+        ros::Time timestamp;
+    };
+    std::map<int, TimedMatrix> custom_matrix_map_;
 
     // 距离数据
     struct DistanceEntry {
@@ -103,7 +102,6 @@ private:
         float distance;
         ros::Time timestamp;
     };
-    // std::vector<DistanceEntry> distance_buffer_;
 
     // 目标点
     struct Target {
@@ -112,7 +110,6 @@ private:
         float y;
         float z;
     };
-    // std::vector<Target> target_buffer_;
 
     // Pose 数据
     struct PoseEntry {
@@ -123,13 +120,13 @@ private:
         float yaw;
         ros::Time timestamp;
     };
-    // std::vector<PoseEntry> pose_buffer_;
 
     struct PoseInfo {
         float x = 0.0f, y = 0.0f, z = 0.0f, yaw = 0.0f;
     };
     PoseInfo self_pose_;
     PoseInfo target_pose_;
+
 
     struct FrameData {
         std::map<int, PoseInfo> poses;
@@ -141,11 +138,9 @@ private:
     std::map<double, FrameData> frame_data_map_;
     std::mutex frame_data_mutex_;
     
-
-    ros::Time last_publish_time_;
     ros::Timer publish_timer_;
     ros::Timer print_timer_;
-    double matrix_print_rate_;
+    double print_rate_;
     double matrix_publish_rate_;
     double publish_period_;
     double distance_diff_threshold_;
@@ -154,15 +149,13 @@ private:
     std::string odom_topic_;
     std::string target_topic_;
 
-    const double TIME_TOLERANCE = 0.01; // 10ms
-
 public:
     UWBNode() : private_nh_("~") {
         // 参数
         private_nh_.param<int>("node_id", node_id_, 0);
         private_nh_.param<int>("total_nodes", total_nodes_, 6);
         private_nh_.param<int>("required_nodes", required_nodes_, 5);
-        private_nh_.param<double>("matrix_print_rate", matrix_print_rate_, 1.0);
+        private_nh_.param<double>("matrix_print_rate", print_rate_, 1.0);
         private_nh_.param<double>("matrix_publish_rate", matrix_publish_rate_, 100.0);
         private_nh_.param<double>("distance_diff_threshold", distance_diff_threshold_, 0.5);
         private_nh_.param<std::string>("odom_topic", odom_topic_, "/odom");
@@ -175,7 +168,6 @@ public:
         target_matrix_.resize(total_nodes_, std::vector<float>(4, 0.0f));
         custom_matrix_.resize(total_nodes_, std::vector<float>(2, 0.0f));//4*2初始化
 
-        last_publish_time_ = ros::Time::now();
 
         cleanup_timer_ = nh_.createTimer(ros::Duration(2.0), &UWBNode::cleanupStaleData, this);
 
@@ -198,6 +190,7 @@ public:
         frame2_sub_ = nh_.subscribe<nlink_parser::LinktrackNodeframe2>(
             "/uwb" + std::to_string(node_id_) + "/nodeframe2", 10, &UWBNode::frame2Callback, this);
 
+         //传感器 Tatget
         nodeframe0_sub_ = nh_.subscribe<nlink_parser::LinktrackNodeframe0>(
             "/uwb" + std::to_string(node_id_) + "/nodeframe0", 10, &UWBNode::parseNodeframe0, this);
 
@@ -205,7 +198,7 @@ public:
         target_pos_sub_ = nh_.subscribe<geometry_msgs::PoseStamped>(target_topic_, 10, &UWBNode::targetCallback, this);
         
         //回调发布
-        print_timer_ = nh_.createTimer(ros::Duration(1.0 / matrix_print_rate_), &UWBNode::printMatrixCallback, this);
+        print_timer_ = nh_.createTimer(ros::Duration(1.0 / print_rate_), &UWBNode::printMatrixCallback, this);
         publish_timer_ = nh_.createTimer(ros::Duration(publish_period_), &UWBNode::publishMatrixCallback, this);
     }
 
@@ -374,7 +367,7 @@ public:
         ros::Time now = ros::Time::now();
         double dist_timeout = 5.0;
         double frame_timeout = 1.0;
-
+        double custom_timeout = 5.0;
         {
             std::lock_guard<std::mutex> lock(frame_data_mutex_);
             for (auto it = frame_data_map_.begin(); it != frame_data_map_.end(); ) {
@@ -386,8 +379,11 @@ public:
             }
         }
 
+        // 清理 last_valid_dist_map_ 和 custom_matrix_map_
         {
             std::lock_guard<std::mutex> lock(data_mutex_);
+
+            // 1. 清理 last_valid_dist_map_
             for (auto it = last_valid_dist_map_.begin(); it != last_valid_dist_map_.end(); ) {
                 if ((now - it->second.second).toSec() > dist_timeout) {
                     it = last_valid_dist_map_.erase(it);
@@ -395,10 +391,18 @@ public:
                     ++it;
                 }
             }
+
+            // 2. 清理 custom_matrix_map_
+            for (auto it = custom_matrix_map_.begin(); it != custom_matrix_map_.end(); ) {
+                if ((now - it->second.timestamp).toSec() > custom_timeout) {
+                    ROS_WARN("Removing stale custom_matrix from node %d", it->first);
+                    it = custom_matrix_map_.erase(it);
+                } else {
+                    ++it;
+                }
+            }
         }
     }
-
-
 
     void processFrameData(double timestamp, FrameData& frame) {
         for (const auto& entry : frame.distances) {
@@ -440,7 +444,7 @@ public:
     
         for (const auto& kv : frame.custom_matrices) {
             int id = kv.first;
-            custom_matrix_map_[id] = kv.second;
+            custom_matrix_map_[id] = TimedMatrix{kv.second, ros::Time::now()};
         }
     
         // ROS_INFO("Frame at time %.3f processed and fused", timestamp);
@@ -624,10 +628,10 @@ public:
     }
     //解算出的矩阵
     void publishCustomMatrices() {
+        std::lock_guard<std::mutex> lock(data_mutex_); 
         for (const auto& pair : custom_matrix_map_) {
             int source_id = pair.first;
-            const auto& mat = pair.second;
-    
+            const auto& mat = pair.second.matrix;
             // 发布
             if (matrix_from_others_pub_.count(source_id)) {
                 std_msgs::Float32MultiArray msg;
@@ -638,7 +642,7 @@ public:
                 msg.layout.dim[1].label = "cols";
                 msg.layout.dim[1].size = 2;
                 msg.layout.dim[1].stride = 2;
-    
+                
                 msg.data.resize(total_nodes_*2);
                 for (int i = 0; i < total_nodes_; ++i) {
                     for (int j = 0; j < 2; ++j) {
@@ -688,7 +692,7 @@ public:
 
         ROS_INFO("frame_data_map_ size: %lu", frame_data_map_.size());
         ROS_INFO("last_valid_dist_map_ size: %lu", last_valid_dist_map_.size());
-
+        ROS_INFO("custom_matrix_map_ size: %lu", custom_matrix_map_.size()); 
 
         // // Pose
         // ROS_INFO("[Node %d] Pose Matrix (x, y, z, yaw):", node_id_);
