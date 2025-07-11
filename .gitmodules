@@ -1,0 +1,3 @@
+[submodule "src/nlink_parser"]
+  path = src/nlink_parser
+  url = https://github.com/nooploop-dev/nlink_parser.git
