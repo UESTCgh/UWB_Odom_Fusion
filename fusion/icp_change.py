@@ -10,7 +10,7 @@ import rospy
 import numpy as np
 import argparse
 from std_msgs.msg import Float32MultiArray
-from geometry_msgs.msg import PoseArray, Pose, PoseStamped
+from geometry_msgs.msg import Pose, PoseStamped
 from nav_msgs.msg import Path
 from math import cos, sin
 from scipy.optimize import least_squares
@@ -44,11 +44,12 @@ class ID3ICPAligner:
 
         # 订阅
         rospy.Subscriber("/uwb1/pose_matrix", Float32MultiArray, self.odom_callback)
-        rospy.Subscriber("/uwb1/uwb_locator", PoseArray, self.uwb_callback)
+        rospy.Subscriber("/uwb1/custom_matrix", Float32MultiArray, self.uwb_callback)
 
         # 发布
         prefix = f"/id{self.id}"
-        self.pub_pose = rospy.Publisher(f"{prefix}/odom_in_uwb", PoseArray, queue_size=1)
+        # self.pub_pose = rospy.Publisher(f"{prefix}/odom_in_uwb", PoseArray, queue_size=1)
+        self.pub_pose = rospy.Publisher(f"{prefix}/odom_in_uwb", Float32MultiArray, queue_size=1)
         self.pub_path_raw = rospy.Publisher(f"{prefix}/odom_raw_path", Path, queue_size=1)
         self.pub_path_icp = rospy.Publisher(f"{prefix}/odom_icp_path", Path, queue_size=1)
         self.pub_path_uwb = rospy.Publisher(f"{prefix}/uwb_path", Path, queue_size=1)
@@ -82,9 +83,9 @@ class ID3ICPAligner:
 
     def uwb_callback(self, msg):
         try:
-            if len(msg.poses) > self.id:
-                pt = msg.poses[self.id].position
-                pt_arr = np.array([pt.x, pt.y])
+            data = np.array(msg.data).reshape(-1, 2)  # 转为 [N, 2]
+            if data.shape[0] > self.id:
+                pt_arr = data[self.id]
                 with self.lock:
                     self.uwb_traj.append(pt_arr)
                     if self.has_started and self.icp_enabled:
@@ -140,16 +141,13 @@ class ID3ICPAligner:
         self.publish_paths()
 
     def publish_pose_array(self, points):
-        pa = PoseArray()
-        pa.header.stamp = rospy.Time.now()
-        pa.header.frame_id = "uwb"
+        msg = Float32MultiArray()
+        flat_data = []
         for pt in points:
-            pose = Pose()
-            pose.position.x = pt[0]
-            pose.position.y = pt[1]
-            pose.orientation.w = 1.0
-            pa.poses.append(pose)
-        self.pub_pose.publish(pa)
+            flat_data.extend([pt[0], pt[1]])
+        msg.data = flat_data
+        self.pub_pose.publish(msg)
+
 
     def publish_paths(self):
         now = rospy.Time.now()
@@ -201,9 +199,9 @@ if __name__ == "__main__":
     except rospy.ROSInterruptException:
         pass
     finally:
-        if node is not None:
-            if len(node.odom_traj) > 0:
-                node.save_traj_as_tum(node.odom_traj, f"id{node.id}_odom.tum")
-            if len(node.uwb_traj) > 0:
-                node.save_traj_as_tum(node.uwb_traj, f"id{node.id}_uwb.tum")
-
+        pass
+        # if node is not None:
+        #     if len(node.odom_traj) > 0:
+        #         node.save_traj_as_tum(node.odom_traj, f"id{node.id}_odom.tum")
+        #     if len(node.uwb_traj) > 0:
+        #         node.save_traj_as_tum(node.uwb_traj, f"id{node.id}_uwb.tum")
