@@ -12,6 +12,7 @@
 #include <mutex>
 #include <map>
 #include <cmath>
+#include <deque>
 
 //二进制传输
 #include <std_msgs/UInt8MultiArray.h>
@@ -137,6 +138,15 @@ private:
     };
     std::map<double, FrameData> frame_data_map_;
     std::mutex frame_data_mutex_;
+
+    //存储UWB，用于时间同步
+    struct CachedUWB {
+        double timestamp;
+        FrameData frame;
+    };
+    std::deque<CachedUWB> uwb_buffer_;
+    size_t max_buffer_size_ = 100; // 缓存上限
+    size_t avg_window = 4; 
     
     ros::Timer publish_timer_;
     ros::Timer print_timer_;
@@ -144,6 +154,9 @@ private:
     double matrix_publish_rate_;
     double publish_period_;
     double distance_diff_threshold_;
+
+    int uwb_frame_count_ = 0;
+    int uwb_publish_interval_ = 10;  // 每10帧发布一次，可设为参数
 
     std::mutex data_mutex_;
     std::string odom_topic_;
@@ -160,6 +173,7 @@ public:
         private_nh_.param<double>("distance_diff_threshold", distance_diff_threshold_, 0.5);
         private_nh_.param<std::string>("odom_topic", odom_topic_, "/odom");
         private_nh_.param<std::string>("target_topic", target_topic_, "/target_position");
+        private_nh_.param<int>("uwb_publish_interval", uwb_publish_interval_, 10);
 
         publish_period_ = 1.0 / matrix_publish_rate_;
 
@@ -244,7 +258,9 @@ public:
             target_matrix_[node_id_][0] = target_pose_.x;
             target_matrix_[node_id_][1] = target_pose_.y;
             target_matrix_[node_id_][2] = target_pose_.z;
-            target_matrix_[node_id_][3] = target_pose_.yaw;  // yaw
+            //取0
+             target_matrix_[node_id_][3] = 0; 
+            // target_matrix_[node_id_][3] = target_pose_.yaw;  // yaw
         }
     }
 
@@ -351,16 +367,34 @@ public:
         {
             std::lock_guard<std::mutex> frame_lock(frame_data_mutex_);
             auto& frame = frame_data_map_[rounded_time];
-            if (frame.received_nodes.size() >= required_nodes_) {
-                processFrameData(rounded_time, frame);
-                frame_data_map_.erase(rounded_time);
+
+            // 覆盖成最新 pose / target
+            frame.poses[node_id_] = self_pose_;
+            frame.targets[node_id_] = target_pose_;
+            frame.custom_matrices[node_id_] = custom_matrix_;
+            frame.received_nodes.insert(node_id_);
+
+            //加入缓冲
+            uwb_buffer_.push_back({rounded_time, frame});
+            if (uwb_buffer_.size() > max_buffer_size_) {
+                uwb_buffer_.pop_front();
             }
+
+
+            // if (frame.received_nodes.size() >= required_nodes_) {
+            //     processFrameData(rounded_time, frame);
+            //     frame_data_map_.erase(rounded_time);
+            // }
         }
 
         // 发布二进制数据
         std_msgs::String data_trans_msg;
         data_trans_msg.data = buffer;
-        data_trans_pub_.publish(data_trans_msg);
+        // data_trans_pub_.publish(data_trans_msg);
+        if (++uwb_frame_count_ >= uwb_publish_interval_) {
+            data_trans_pub_.publish(data_trans_msg);
+            uwb_frame_count_ = 0;  // 重置计数
+        }
     }
 
     void cleanupStaleData(const ros::TimerEvent&) {
@@ -455,47 +489,40 @@ public:
         std::lock_guard<std::mutex> lock(data_mutex_);
         for (const auto& node : msg->nodes) {
             try {
-                std::string buffer(node.data.begin(), node.data.end());
-                if (buffer.size() != 84) {
-                    ROS_ERROR("[parseNodeframe0] Invalid buffer size: %lu", buffer.size());
+
+                const std::vector<uint8_t>& data = node.data;
+
+                if (data.size() != 84) {
+                    ROS_ERROR("[parseNodeframe0] Invalid buffer size: %zu", data.size());
                     continue;
                 }
 
                 size_t offset = 0;
 
-                uint8_t source_id = static_cast<uint8_t>(buffer[offset++]);
-                // ROS_WARN("[parseNodeframe0] source_id=%d", source_id);
+                auto read_float = [&](float& out) {
+                    if (offset + 4 > data.size()) throw std::runtime_error("Buffer overflow");
+                    std::memcpy(&out, &data[offset], 4);
+                    offset += 4;
+                };
+
+                uint8_t source_id = data[offset++];
 
                 float timestamp;
-                std::memcpy(&timestamp, &buffer[offset], 4); offset += 4;
-                // ROS_WARN("[parseNodeframe0] timestamp=%.2f", timestamp);
+                read_float(timestamp);
 
                 float tx, ty, tz, tyaw;
-                std::memcpy(&tx, &buffer[offset], 4); offset += 4;
-                std::memcpy(&ty, &buffer[offset], 4); offset += 4;
-                std::memcpy(&tz, &buffer[offset], 4); offset += 4;
-                std::memcpy(&tyaw, &buffer[offset], 4); offset += 4;
-
-                // ROS_WARN("[parseNodeframe0] target=%.3f %.3f %.3f %.3f", tx, ty, tz, tyaw);
+                read_float(tx); read_float(ty); read_float(tz); read_float(tyaw);
 
                 float sx, sy, sz, syaw;
-                
-                std::memcpy(&sx, &buffer[offset], 4); offset += 4;
-                std::memcpy(&sy, &buffer[offset], 4); offset += 4;
-                std::memcpy(&sz, &buffer[offset], 4); offset += 4;
-                std::memcpy(&syaw, &buffer[offset], 4); offset += 4;
-
-                // ROS_WARN("[parseNodeframe0] self=%.3f %.3f %.3f %.3f", sx, sy, sz, syaw);
+                read_float(sx); read_float(sy); read_float(sz); read_float(syaw);
 
                 std::vector<std::vector<float>> custom_matrix(4, std::vector<float>(2));
                 for (int i = 0; i < 4; ++i)
-                    for (int j = 0; j < 2; ++j) {
-                        std::memcpy(&custom_matrix[i][j], &buffer[offset], 4);
-                        // ROS_WARN("[parseNodeframe0] custom[%d][%d]=%.3f", i, j, custom_matrix[i][j]);
-                        offset += 4;
-                    }
+                    for (int j = 0; j < 2; ++j)
+                        read_float(custom_matrix[i][j]);
 
                 ros::Time parsed_time(timestamp);
+
                 std::lock_guard<std::mutex> frame_lock(frame_data_mutex_);
                 auto& frame = frame_data_map_[timestamp];
                 frame.poses[source_id] = {sx, sy, sz, syaw};
@@ -504,9 +531,9 @@ public:
                 frame.received_nodes.insert(source_id);
 
                 for (int i = 0; i < 3; ++i) {
-                    uint8_t tid = static_cast<uint8_t>(buffer[offset++]);
+                    uint8_t tid = data[offset++];
                     float dist;
-                    std::memcpy(&dist, &buffer[offset], 4); offset += 4;
+                    read_float(dist);
 
                     if (tid != 255 && dist > 0.001f && tid < total_nodes_ && std::isfinite(dist)) {
                         frame.distances.push_back({source_id, tid, dist, parsed_time});
@@ -518,31 +545,22 @@ public:
                             if (last_valid_dist_map_.count(key)) {
                                 float recovered_dist = last_valid_dist_map_[key].first;
                                 frame.distances.push_back({source_id, possible_id, recovered_dist, parsed_time});
-                                // ROS_WARN("[parseNodeframe0] (%d - %d): %.2f", source_id, possible_id, recovered_dist);
                                 break;
                             }
                         }
                     }
                 }
-                
-                // printf("[parseNodeframe0] received_nodes.size=%lu / required=%d\n",
-                //     frame.received_nodes.size(), required_nodes_);
-
-                // printf("[parseNodeframe0] received_nodes IDs: ");
-                // for (const auto& id : frame.received_nodes) {
-                //     printf("%d ", id);
-                // }
-                // printf("\n");
 
                 if (frame.received_nodes.size() >= required_nodes_) {
                     processFrameData(timestamp, frame);
                     frame_data_map_.erase(timestamp);
                 }
-            } catch (...) {
-                ROS_WARN("Failed to parse binary data in nodeframe0");
+            } catch (const std::exception& e) {
+                ROS_WARN("[parseNodeframe0] Failed to parse: %s", e.what());
             }
         }
     }
+
 
 
     // 距离阵
@@ -656,6 +674,48 @@ public:
     } 
 
     void publishMatrixCallback(const ros::TimerEvent&) {
+        // TODO: 时间同步
+        // 缓冲区清理，防止溢出
+        {
+            std::lock_guard<std::mutex> lock(frame_data_mutex_);
+            while (uwb_buffer_.size() > max_buffer_size_) {
+                uwb_buffer_.pop_front();
+            }
+        }
+
+        if (uwb_buffer_.size() < avg_window) {
+            return;
+        }
+
+        FrameData avg_frame;
+        std::map<std::pair<int,int>, std::pair<float,int>> dist_sum; // (sid, tid) -> (sum, count)
+
+        {
+            std::lock_guard<std::mutex> lock(frame_data_mutex_);
+
+            for (size_t i = 0; i < avg_window; ++i) {
+                CachedUWB cuwb = uwb_buffer_.front();
+                uwb_buffer_.pop_front();
+
+                for (const auto& d : cuwb.frame.distances) {
+                    auto key = std::make_pair(d.source_id, d.target_id);
+                    dist_sum[key].first  += d.distance;
+                    dist_sum[key].second += 1;
+                }
+            }
+        }
+        ros::Time now_time = ros::Time::now();
+        for (auto& kv : dist_sum) {
+            float avg_dist = kv.second.first / kv.second.second;
+            avg_frame.distances.push_back({
+                kv.first.first,   // sid
+                kv.first.second,  // tid
+                avg_dist,         // 平均距离
+                now_time
+            });
+        }
+        processFrameData(now_time.toSec(), avg_frame);
+        
         //发布
         publishMatrix();
         publishPoseMatrix();
@@ -682,7 +742,7 @@ public:
                 if (distance_matrix_[i][j] < 0) {
                     row += "   -  |"; // 未知距离
                 } else {
-                    char buffer[8];
+                    char buffer[32];
                     sprintf(buffer, "%5.2f |", distance_matrix_[i][j]);
                     row += buffer;
                 }

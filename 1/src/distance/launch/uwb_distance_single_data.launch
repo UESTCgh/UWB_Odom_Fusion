@@ -1,0 +1,27 @@
+<launch>
+  <!-- 机器个数 -->
+  <arg name="total_nodes" default="4"/>
+  <!-- 激发更新需要的节点个数 -->
+  <arg name="required_nodes" default="1"/>
+  <!-- INFO频率：Hz -->
+  <arg name="matrix_print_rate" default="1.0"/>
+  <!-- 发布频率：Hz -->
+  <arg name="matrix_publish_rate" default="100.0"/>
+  <!-- 过滤距离 -->
+  <arg name="distance_diff_threshold" value="2.4" />
+  <!-- 节点ID -->
+  <arg name="node_id" value="0" />
+  
+  <node pkg="distance" type="uwb_matrix_ros" name="uwb_node_$(arg node_id)" output="screen">
+    <param name="node_id" value="$(arg node_id)"/>
+    <param name="total_nodes" value="$(arg total_nodes)"/>
+    <param name="matrix_print_rate" value="$(arg matrix_print_rate)"/>
+    <param name="matrix_publish_rate" value="$(arg matrix_publish_rate)"/>  
+    <param name="required_nodes" value="$(arg required_nodes)" />
+    <param name="distance_diff_threshold" value="$(arg distance_diff_threshold)" />
+    <!-- odom话题 -->
+    <param name="odom_topic" value="/odom0" />
+    <!-- 目标点话题 -->
+    <param name="target_topic" value="/uwb0/target_position"/>
+  </node>
+</launch>

@@ -5,7 +5,7 @@
   <!-- INFO频率：Hz -->
   <arg name="matrix_print_rate" default="1.0"/>
   <!-- 发布频率：Hz -->
-  <arg name="matrix_publish_rate" default="100.0"/>
+  <arg name="matrix_publish_rate" default="30.0"/>
   <!-- 激发更新需要的节点个数 -->
   <arg name="required_nodes" default="3"/>
   <!-- 过滤距离 -->

@@ -91,7 +91,12 @@
         "hash_map": "cpp",
         "hash_set": "cpp",
         "netfwd": "cpp",
-        "ranges": "cpp"
+        "ranges": "cpp",
+        "nonlinearoptimization": "cpp",
+        "span": "cpp",
+        "core": "cpp",
+        "numericaldiff": "cpp",
+        "specialfunctions": "cpp"
     },
     "cmake.sourceDirectory": "/home/gh/uwb_ws/src/distance"
 }

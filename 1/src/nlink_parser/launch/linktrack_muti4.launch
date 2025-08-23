@@ -1,0 +1,46 @@
+<launch>
+    <!-- UWB0  -->
+    <node pkg="nlink_parser" type="linktrack" name="linktrack0" output="screen">
+        <param name="port_name" value="/dev/ttyCH343USB0" />
+        <param name="baud_rate" value="921600" />
+
+        <!-- 话题重映射 -->
+        <remap from="/nlink_linktrack_nodeframe2" to="/uwb0/nodeframe2" />
+        <remap from="/nlink_linktrack_nodeframe0" to="/uwb0/nodeframe0" />
+        <remap from="/nlink_linktrack_data_transmission" to="/uwb0/data_transmission" />
+    </node>
+
+    <!-- UWB1  -->
+    <node pkg="nlink_parser" type="linktrack" name="linktrack1" output="screen">
+        <param name="port_name" value="/dev/ttyCH343USB1" />
+        <param name="baud_rate" value="921600" />
+        
+        <!-- 不同的话题重映射 -->
+        <remap from="/nlink_linktrack_nodeframe2" to="/uwb1/nodeframe2" />
+        <remap from="/nlink_linktrack_nodeframe0" to="/uwb1/nodeframe0" />
+        <remap from="/nlink_linktrack_data_transmission" to="/uwb1/data_transmission" />
+    </node>
+
+    <!-- UWB2  -->
+    <node pkg="nlink_parser" type="linktrack" name="linktrack2" output="screen">
+        <param name="port_name" value="/dev/ttyCH343USB2" />
+        <param name="baud_rate" value="921600" />
+        
+        <!-- 不同的话题重映射 -->
+        <remap from="/nlink_linktrack_nodeframe2" to="/uwb2/nodeframe2" />
+        <remap from="/nlink_linktrack_nodeframe0" to="/uwb2/nodeframe0" />
+        <remap from="/nlink_linktrack_data_transmission" to="/uwb2/data_transmission" />
+    </node>
+
+    <!-- UWB3  -->
+    <node pkg="nlink_parser" type="linktrack" name="linktrack3" output="screen">
+        <param name="port_name" value="/dev/ttyCH343USB3" />
+        <param name="baud_rate" value="921600" />
+        
+        <!-- 不同的话题重映射 -->
+        <remap from="/nlink_linktrack_nodeframe2" to="/uwb3/nodeframe2" />
+        <remap from="/nlink_linktrack_nodeframe0" to="/uwb3/nodeframe0" />
+        <remap from="/nlink_linktrack_data_transmission" to="/uwb3/data_transmission" />
+    </node>
+
+</launch>

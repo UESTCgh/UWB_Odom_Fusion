@@ -13,6 +13,7 @@ from collections import deque
 
 # Apply ROS
 import rospy
+# from std_msgs.msg import Float32MultiArray
 from std_msgs.msg import Float32MultiArray
 from geometry_msgs.msg import PoseArray, Pose ,Point
 
@@ -68,7 +69,7 @@ class UWBFusion:
         # Apply ROS
         rospy.Subscriber(pose_topic, Float32MultiArray, self.pose_callback)
         rospy.Subscriber(dist_topic, Float32MultiArray, self.dist_callback)
-        self.pose_publisher = rospy.Publisher(pub_topic, PoseArray, queue_size=10)
+        self.pose_publisher = rospy.Publisher(pub_topic, Float32MultiArray, queue_size=10)
         self.marker_publisher = rospy.Publisher("/uwb1/marker_array", MarkerArray, queue_size=10)
 
         self.rate = rospy.Rate(200)
@@ -424,14 +425,9 @@ class UWBFusion:
         pose_array_msg.header.frame_id = "uwb"
 
 
-        for i in range(self.N):
-            pose = Pose()
-            pose.position.x = self.smooth_frame[i, 0]
-            pose.position.y = self.smooth_frame[i, 1]
-            pose.position.z = 0.0 if self.DIM < 3 else self.smooth_frame[i, 2]
-            pose_array_msg.poses.append(pose)
-
-        self.pose_publisher.publish(pose_array_msg)
+        flat_pose = Float32MultiArray()
+        flat_pose.data = self.curr_frame[:, :self.DIM].flatten().tolist()
+        self.pose_publisher.publish(flat_pose)
 
         # log
         # if self.num_frames % 100 == 0:
