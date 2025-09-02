@@ -25,15 +25,12 @@ class UWBFusion:
 
     def __init__(self, N: int, DIM: int,
                  pose_topic: str, dist_topic: str, pub_topic: str,
-                 iteration=8, buffer=128,uwb_filter_threshold=0.2, frames_window=8,fixed_indices=None):
+                 iteration=8, buffer=128,uwb_filter_threshold=0.2, frames_window=8):
         # dimension will be 1, 2 or 3
         assert DIM in [1, 2, 3]
 
         self.N = N
         self.DIM = DIM
-
-        self.fixed_indices = sorted(set(fixed_indices or []))
-
         self.left_fixed_point = 0
         self.right_fixed_point = 0
         self.tstamp = None
@@ -73,28 +70,6 @@ class UWBFusion:
         self.marker_publisher = rospy.Publisher("/uwb1/marker_array", MarkerArray, queue_size=10)
 
         self.rate = rospy.Rate(200)
-    
-    def _apply_delta(self, delta, step, use_fixed=True):
-        """
-        回写增量：
-        - use_fixed=False：初始化阶段，所有节点都更新
-        - use_fixed=True ：正常阶段，只更新非固定节点（锚点不更新）
-        """
-        # 计算锚点集合
-        anchors = set(self.fixed_indices or [])
-        if self.left_fixed_point > 0:
-            anchors.update(range(0, min(self.left_fixed_point, self.N)))
-        if self.right_fixed_point > 0:
-            anchors.update(range(max(0, self.N - self.right_fixed_point), self.N))
-
-        delta = (step * delta).reshape(-1)
-
-        # 关键：按“全局变量向量”的切片来取每个节点的增量
-        for node in range(self.N):
-            if use_fixed and (node in anchors):
-                continue  # 锚点不更新
-            base = node * self.DIM
-            self.curr_frame[node] = (self.curr_frame[node] + delta[base:base + self.DIM]).reshape(-1,)
 
     #兼容北西上修改
     def pose_callback(self, msg):
@@ -118,7 +93,7 @@ class UWBFusion:
     #     self.odom_curr_frame = np.array(msg.data).reshape(self.N, -1)[:, :self.DIM]
     #     self.pose_ready = True
 
-    # input 
+    # input
     def dist_callback(self, msg):
         new_dist = np.array(msg.data).reshape(-1, 1)
 
@@ -233,66 +208,75 @@ class UWBFusion:
             H = H + (ep + lm * H) * np.eye(H.shape[0])
             delta = np.linalg.solve(H, v)
 
-            # self.curr_frame[self.left_fixed_point:(self.N - self.right_fixed_point)] = \
-            #     (self.curr_frame[self.left_fixed_point:(self.N - self.right_fixed_point)].reshape(-1, 1) + step * delta).reshape(-1, self.DIM)
-
-            self._apply_delta(delta, step, use_fixed=False)
+            self.curr_frame[self.left_fixed_point:(self.N - self.right_fixed_point)] = \
+                (self.curr_frame[self.left_fixed_point:(self.N - self.right_fixed_point)].reshape(-1, 1) + step * delta).reshape(-1, self.DIM)
 
             if np.linalg.norm(step * delta) < thresh:
                 return
 
     def cal_jacobian_residual(self):
         """
-        正常优化阶段：锚点（fixed_indices + 左/右）参与残差，但其雅可比列为 0（不被优化）。
-        """
-        anchors = set(self.fixed_indices or [])
-        if self.left_fixed_point > 0:
-            anchors.update(range(0, min(self.left_fixed_point, self.N)))
-        if self.right_fixed_point > 0:
-            anchors.update(range(max(0, self.N - self.right_fixed_point), self.N))
+        @brief: calculate Jacobian & residual
 
-        # --- J1 & r1: 距离约束 ---
+        @output:
+        1.distance constraint
+        J1  (N^2, (N-fixed)*2)  Jacobian
+        r1  (N^2, 1)            residual
+
+        2.inter-frame constraint
+        J2  (N, (N-fixed)*2)    Jacobian
+        r2  (N, 1)              residual
+        """
         J1 = np.zeros((self.N ** 2, self.N * self.DIM))
         for row in range(J1.shape[0]):
             row_i, row_j = row // self.N, row % self.N
+            # none residual
             if row_i == row_j:
                 continue
             for col in range(J1.shape[1]):
                 col_i, col_j = col // self.DIM, col % self.DIM
-                if col_i in anchors:
-                    continue  # 锚点列置 0
-                if row_i == col_i:
+                # fixed point
+                if (col_i < self.left_fixed_point) or \
+                    (col_i > self.N - self.right_fixed_point - 1):
+                    continue
+                elif row_i == col_i:
                     J1[row, col] = 2 * (self.curr_frame[col_i, col_j] - self.curr_frame[row_j, col_j])
                 elif row_j == col_i:
                     J1[row, col] = 2 * (self.curr_frame[col_i, col_j] - self.curr_frame[row_i, col_j])
+        J1 = J1[:, (self.left_fixed_point * self.DIM):((self.N - self.right_fixed_point) * self.DIM)]
         r1 = self.point_distance_matrix**2 - self.uwb_distance_matrix**2
 
-        # --- J2 & r2: 帧间位移约束 ---
         J2 = np.zeros((self.N, self.N * self.DIM))
         for row in range(J2.shape[0]):
             for col in range(J2.shape[1]):
                 col_i, col_j = col // self.DIM, col % self.DIM
-                if col_i in anchors:
-                    continue  # 锚点列置 0
-                if row == col_i:
+                # fixed point
+                if (col_i < self.left_fixed_point) or \
+                    (col_i > self.N - self.right_fixed_point - 1):
+                    continue
+                elif row == col_i:
                     J2[row, col] = 2 * (self.curr_frame[col_i, col_j] - self.last_frame[col_i, col_j])
+        J2 = J2[:, (self.left_fixed_point * self.DIM):((self.N - self.right_fixed_point) * self.DIM)]
         r2 = self.constraint_distance_matrix**2 - self.odom_distance_matrix**2
 
-        # --- J3 & r3: 相对初始化帧软约束（可选） ---
+        # 3. 与初始化帧之间的位移约束（类似于 inter-frame）
         if self.init_frame is not None:
             J3 = np.zeros((self.N, self.N * self.DIM))
             for row in range(J3.shape[0]):
                 for col in range(J3.shape[1]):
                     col_i, col_j = col // self.DIM, col % self.DIM
-                    if col_i in anchors:
-                        continue  # 锚点列置 0
-                    if row == col_i:
+                    # fixed point 不纳入优化变量
+                    if (col_i < self.left_fixed_point) or \
+                       (col_i > self.N - self.right_fixed_point - 1):
+                        continue
+                    elif row == col_i:
                         J3[row, col] = 2 * (self.curr_frame[col_i, col_j] - self.init_frame[col_i, col_j])
+            J3 = J3[:, (self.left_fixed_point * self.DIM):((self.N - self.right_fixed_point) * self.DIM)]
             r3 = np.linalg.norm(self.curr_frame - self.init_frame, axis=1)[..., None]**2
         else:
             J3, r3 = None, None
 
-        return J1, r1, J2, r2, J3, r3
+        return J1, r1, J2, r2 ,J3 ,r3
 
     # Gaussian-Newton optimization
     def gauss_newton_optimization(self, J1, r1, J2, r2, J3, r3,
@@ -324,12 +308,9 @@ class UWBFusion:
             r3_norm = np.linalg.norm(r3) / len(r3) if r3 is not None else 0.0
 
             rospy.loginfo(f"[Optimize] Δ={delta_norm:.6e} | r1={r1_norm:.6e}, r2={r2_norm:.6e}, r3={r3_norm:.6e} (γ={gamma})")
-            (self.curr_frame[self.left_fixed_point:(self.N - self.right_fixed_point)].reshape(-1, 1) + step * delta).reshape(-1, self.DIM)
 
-            # self.curr_frame[self.left_fixed_point:(self.N - self.right_fixed_point)] = \
-            #     (self.curr_frame[self.left_fixed_point:(self.N - self.right_fixed_point)].reshape(-1, 1) + step * delta).reshape(-1, self.DIM)
-
-            self._apply_delta(delta, step, use_fixed=True) 
+            self.curr_frame[self.left_fixed_point:(self.N - self.right_fixed_point)] = \
+                (self.curr_frame[self.left_fixed_point:(self.N - self.right_fixed_point)].reshape(-1, 1) + step * delta).reshape(-1, self.DIM)
 
             if np.linalg.norm(step * delta) < thresh:
                 return
@@ -555,7 +536,6 @@ class UWBFusion:
         self.apply_sliding_window_filter(method = 'median') 
 
         # Publish uwb pose
-
         flat_pose = Float32MultiArray()
         flat_pose.data = self.curr_frame[:, :self.DIM].flatten().tolist()
         self.pose_publisher.publish(flat_pose)
@@ -587,7 +567,6 @@ def get_param():
     parser.add_argument('--iteration', type=int, default=4)
     parser.add_argument('--uwb_filter_threshold', type=float, default=0.05)
     parser.add_argument('--frames_window', type=int, default=48)
-    parser.add_argument('--fixed_indices', type=str, default="")
 
     args = parser.parse_args()
     return args
@@ -596,11 +575,11 @@ def run():
     # get parameter
     args = get_param()
     rospy.init_node('UWB_Fusion_node')
-    fixed = []
-    if args.fixed_indices.strip():
-        fixed = [int(x) for x in args.fixed_indices.split(',') if x.strip()!='']
-    uwb_system = UWBFusion(args.N, args.DIM, args.pose_topic, args.dist_topic, args.pub_topic, args.iteration, fixed_indices=fixed)
 
+    # UWB-Fusion
+    uwb_system = UWBFusion(args.N, args.DIM,
+                           args.pose_topic, args.dist_topic, args.pub_topic,
+                           args.iteration)
     uwb_system.left_fixed_point = 0
     uwb_system.right_fixed_point = 0
 
