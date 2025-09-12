@@ -1,0 +1,37 @@
+--------------------------------------------------------------------------------
+Loaded 14467 stamps and poses from: ./trajectories_best/id0_uwb.tum
+Loaded 15430 stamps and poses from: ./trajectories_best/id0_odom.tum
+--------------------------------------------------------------------------------
+Synchronizing trajectories...
+Found 14467 of max. 14467 possible matching timestamps between...
+	./trajectories_best/id0_uwb.tum
+and:	./trajectories_best/id0_odom.tum
+..with max. time diff.: 0.01 (s) and time offset: 0.0 (s).
+--------------------------------------------------------------------------------
+Aligning using Umeyama's method...
+Rotation of alignment:
+[[-0.18254901  0.98319675  0.        ]
+ [ 0.98319675  0.18254901  0.        ]
+ [ 0.          0.         -1.        ]]
+Translation of alignment:
+[ 1.98659812 -0.08855569  0.        ]
+Scale correction: 1.0
+--------------------------------------------------------------------------------
+Compared 14467 absolute pose pairs.
+Calculating APE for translation part pose relation...
+--------------------------------------------------------------------------------
+APE w.r.t. translation part (m)
+(with SE(3) Umeyama alignment)
+
+       max	2.098830
+      mean	0.355377
+    median	0.250908
+       min	0.000883
+      rmse	0.501144
+       sse	3633.320069
+       std	0.353344
+
+--------------------------------------------------------------------------------
+Plotting results... 
+[WARNING] ./trajectories_best/eval_results/id0_ape_plot_raw.png exists, overwrite?
+enter 'y' to overwrite or any other key to cancel

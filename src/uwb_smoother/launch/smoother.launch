@@ -1,0 +1,6 @@
+<launch>
+  <node pkg="uwb_smoother" type="distance_matrix_smoother" name="distance_matrix_smoother" output="screen">
+    <param name="sub_topic" value="/uwb1/distance_matrix"/>
+    <param name="pub_topic" value="/uwb1/distance_matrix_smoothed"/>
+  </node>
+</launch>

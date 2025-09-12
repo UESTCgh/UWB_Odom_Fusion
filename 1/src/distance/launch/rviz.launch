@@ -1,8 +1,0 @@
-<launch>
-
-    <!-- 启动预配置的RViz -->
-    <node pkg="rviz" type="rviz" name="uwb_rviz" args="-d $(find distance)/config/display.rviz">
-        <!-- 自动保存配置到指定路径 -->
-        <param name="perspective" type="string" value="$(find distance)/config/display.rviz"/>
-    </node>
-</launch>

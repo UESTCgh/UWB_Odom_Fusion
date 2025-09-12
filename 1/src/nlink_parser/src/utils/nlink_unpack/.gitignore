@@ -1,4 +1,0 @@
-*.out
-.vscode
-build
-CMakeLists.txt.user
